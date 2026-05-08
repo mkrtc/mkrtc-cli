@@ -1,0 +1,30 @@
+{
+  "name": "mkrtc",
+  "module": "src/index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^25.6.0",
+    "drizzle-kit": "^0.31.10"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "scripts": {
+    "run:dev": "bun ./src/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun ./src/database/migrate.ts"
+  },
+  "bin": {
+    "mkrtc": "./src/index.ts"
+  },
+  "dependencies": {
+    "@types/consola": "^2.2.8",
+    "better-sqlite3": "^12.9.0",
+    "cli-table3": "^0.6.5",
+    "commander": "^14.0.3",
+    "consola": "^3.4.2",
+    "drizzle-orm": "^0.45.2",
+    "listr2": "^10.2.1"
+  }
+}

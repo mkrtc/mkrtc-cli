@@ -1,0 +1,125 @@
+import CliTable3 from "cli-table3";
+import type { Command } from "commander";
+import consola from "consola";
+import { randomUUID } from "crypto";
+import { Listr } from "listr2";
+import { UuidRepository } from "../../database/repositories/uuid.repository";
+import type { UuidModel } from "../../database/schemas/uuid.schema";
+
+interface UuidArgs {
+  generate?: boolean;
+  save?: boolean;
+  list?: boolean;
+  delete?: string;
+  name?: string;
+  read?: string;
+  quantity?: number;
+}
+
+export class UuidModule {
+  constructor(
+    private readonly uuidRepo: UuidRepository,
+    private uuids: UuidModel[],
+  ) {}
+
+  static register(command: Command): void {
+    command
+      .command("uuid")
+      .option("-g, --generate")
+      .option("-s, --save")
+      .option("-l, --list")
+      .option("-q, --quantity <number>")
+      .option("-r, --read <...string>")
+      .option("-d, --delete <...string>")
+      .option("-n, --name <...string>")
+      .action(async (args: UuidArgs) => {
+        const uuidRepo = new UuidRepository();
+        const uuids = await uuidRepo.findAll();
+        const module = new UuidModule(uuidRepo, uuids);
+        return module.action(args);
+      });
+  }
+
+  private async action(args: UuidArgs): Promise<void> {
+    if (args.list) {
+      const uuidModels = await this.uuidRepo.findAll();
+      consola.info("Fetched uuids list:");
+      this.printToConsoleTable(uuidModels);
+    }
+
+    if (args.read) {
+      const uuidModels = await this.uuidRepo.findManyByNames(
+        args.read.split(",").map((v) => v.trim()),
+      );
+
+      consola.info("Fetched uuids:");
+      this.printToConsoleTable(uuidModels);
+    }
+
+    if (args.generate) {
+      const uuids: UuidModel[] = [];
+      const qty = args.quantity || 1;
+      for (let i = 0; i <= qty - 1; i++) {
+        const names = args.name?.split(",")?.map((v) => v.trim()) || [];
+        const uuid = randomUUID();
+        let name = names[i] || names[0] || (uuid.split("-")[0] as string);
+        name = i > 0 && name === names[0] ? `${name}_${i}` : name;
+        uuids.push(this.uuidRepo.createModel(name, uuid));
+      }
+      consola.info("Generated uuids: ");
+      this.printToConsoleTable(uuids);
+
+      if (args.save) {
+        const task = new Listr([]);
+
+        task.add({
+          task: async (_, t) => {
+            for (const uuid of uuids) {
+              t.output = `Saving ${uuid.name} - ${uuid.uuid}`;
+              await this.uuidRepo.create(uuid);
+            }
+            t.title = `Successfully saved ${uuids.length} uuids`;
+          },
+          title: "Saving uuids",
+        });
+        task.run();
+      }
+    }
+
+    if (args.delete) {
+      const names = args.delete.split(",");
+      const task = new Listr([]);
+
+      task.add({
+        task: async (_, t) => {
+          for (const name of names) {
+            t.output = `Deleting ${name}`;
+            await this.uuidRepo.deleteByName(name.trim());
+          }
+          t.title = `Uuids [${names.join(", ")}] deleted`;
+        },
+        title: "Deleting uuids",
+      });
+
+      task.run();
+    }
+  }
+
+  private printToConsoleTable(uuids: UuidModel[]): void {
+    const table = new CliTable3({
+      head: ["ID", "name", "uuid", "createdAt"],
+      style: {
+        compact: true,
+      },
+    });
+
+    const values = uuids.map((uuid) => [
+      uuid.id,
+      uuid.name,
+      uuid.uuid,
+      uuid.createdAt,
+    ]);
+    table.push(...values);
+    console.log(table.toString());
+  }
+}
