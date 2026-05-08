@@ -34,7 +34,7 @@ fi
 # 3. Зависимости установлены?
 if [ ! -d "$PROJECT_ROOT/node_modules" ]; then
   echo "→ node_modules не найден, ставлю зависимости..."
-  (cd "$PROJECT_ROOT" && bun install)
+  (cd "$PROJECT_ROOT" && bun install && bun db:generate && bun db:migrate)
 fi
 
 # 4. Симлинк
