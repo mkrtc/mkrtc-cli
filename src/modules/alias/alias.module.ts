@@ -11,6 +11,7 @@ interface AliasArgs {
   read: boolean;
   add: string;
   delete: string;
+  separator?: string;
 }
 
 export class AliasModule {
@@ -25,6 +26,11 @@ export class AliasModule {
       .option("-r, --read", STR.ReadAliasOption)
       .option("-a, --add <name=value-description>", STR.AddAliasOption)
       .option("-d, --delete <...string>", STR.RemoveAliasOption)
+      .option(
+        "-s, --separator <string>",
+        "The specific separator for -a. exp: mkrtc -a test1=hello<separator>test2=world -s=,",
+        ",",
+      )
       .action(async (args: AliasArgs) => {
         const aliasesRepo = new AliasesRepository();
         const aliases = await aliasesRepo.findAll();
@@ -39,6 +45,7 @@ export class AliasModule {
     }
     if (args.add) {
       const newAliasesRaw = args.add.split(",");
+      console.log(newAliasesRaw);
       for (const raw of newAliasesRaw) {
         const alias = raw.split("=").reduce<Alias>(
           (prev, cur, index) => {
@@ -47,7 +54,7 @@ export class AliasModule {
               return prev;
             }
             const [cmd, description] = cur
-              .split("-")
+              .split(args.separator || ",")
               .map<string>((v) => v.trim());
             prev.value = cmd as string;
             prev.description = description || null;
