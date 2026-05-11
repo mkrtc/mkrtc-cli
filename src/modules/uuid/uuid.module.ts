@@ -14,6 +14,8 @@ interface UuidArgs {
   name?: string;
   read?: string;
   quantity?: number;
+  responseFormat?: string; // table | string | json
+  separator?: string;
 }
 
 export class UuidModule {
@@ -32,6 +34,16 @@ export class UuidModule {
       .option("-r, --read <...string>")
       .option("-d, --delete <...string>")
       .option("-n, --name <...string>")
+      .option(
+        "--response-format [string]",
+        'Response format. One of: "table, json, string"',
+        "table",
+      )
+      .option(
+        "--separator [string]",
+        "Use only if response type is string",
+        ",",
+      )
       .action(async (args: UuidArgs) => {
         const uuidRepo = new UuidRepository();
         const uuids = await uuidRepo.findAll();
@@ -43,8 +55,8 @@ export class UuidModule {
   private async action(args: UuidArgs): Promise<void> {
     if (args.list) {
       const uuidModels = await this.uuidRepo.findAll();
-      consola.info("Fetched uuids list:");
-      this.printToConsoleTable(uuidModels);
+      consola.success("Fetched uuids list:");
+      this.printToConsoleTable(uuidModels, args.responseFormat, args.separator);
     }
 
     if (args.read) {
@@ -52,8 +64,8 @@ export class UuidModule {
         args.read.split(",").map((v) => v.trim()),
       );
 
-      consola.info("Fetched uuids:");
-      this.printToConsoleTable(uuidModels);
+      consola.success("Fetched uuids:");
+      this.printToConsoleTable(uuidModels, args.responseFormat, args.separator);
     }
 
     if (args.generate) {
@@ -66,8 +78,8 @@ export class UuidModule {
         name = i > 0 && name === names[0] ? `${name}_${i}` : name;
         uuids.push(this.uuidRepo.createModel(name, uuid));
       }
-      consola.info("Generated uuids: ");
-      this.printToConsoleTable(uuids);
+      consola.success("Generated uuids: ");
+      this.printToConsoleTable(uuids, args.responseFormat, args.separator);
 
       if (args.save) {
         const task = new Listr([]);
@@ -105,7 +117,11 @@ export class UuidModule {
     }
   }
 
-  private printToConsoleTable(uuids: UuidModel[]): void {
+  private printToConsoleTable(
+    uuids: UuidModel[],
+    responseFormat: string = "table",
+    separator: string = ",",
+  ): void {
     const table = new CliTable3({
       head: ["ID", "name", "uuid", "createdAt"],
       style: {
@@ -120,6 +136,18 @@ export class UuidModule {
       uuid.createdAt,
     ]);
     table.push(...values);
-    console.log(table.toString());
+    if (responseFormat === "table") {
+      console.log(table.toString());
+    } else if (responseFormat === "json") {
+      console.dir(
+        JSON.stringify(
+          uuids.map((uuid) => uuid.uuid),
+          null,
+          2,
+        ),
+      );
+    } else {
+      console.log(uuids.map((uuid) => uuid.uuid).join(separator));
+    }
   }
 }

@@ -16,4 +16,10 @@ export const STR = {
   AliasAlreadyExistsError: (alias: string) =>
     `Alias "${alias}" already exists.`,
   AliasNotFoundError: (alias: string) => `Alias "${alias}" not found`,
+  SshpassNorInstalledError:
+    "sshpass not installed.\nRun sudo pacman -S sshpass",
+  SshNameIsRequiredError: "--name is required!",
+  SshNameIsDefinedError: (name: string) => `SSH "${name}" already exists`,
+  SshConfigNotExistsError: (name: string) =>
+    `Config with name "${name}" does not exists`,
 } as const;

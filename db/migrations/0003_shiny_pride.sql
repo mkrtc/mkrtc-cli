@@ -1,0 +1,1 @@
+DROP INDEX `ssh_username_unique`;
