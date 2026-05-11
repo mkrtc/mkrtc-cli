@@ -45,7 +45,6 @@ export class AliasModule {
     }
     if (args.add) {
       const newAliasesRaw = args.add.split(",");
-      console.log(newAliasesRaw);
       for (const raw of newAliasesRaw) {
         const alias = raw.split("=").reduce<Alias>(
           (prev, cur, index) => {
