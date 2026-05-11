@@ -67,10 +67,15 @@ export class SshRepository {
     username: string,
     ip: string,
     password: string,
-    args?: string,
+    args?: string[],
   ): SshModel {
     return {
-      args: args?.split(",")?.map((a) => ({ arg: a, id: 0, sshId: 0 })) || [],
+      args:
+        args
+          ?.flatMap((arg) => arg.split(","))
+          .map((arg) => arg.trim())
+          .filter(Boolean)
+          .map((arg) => ({ arg, id: 0, sshId: 0 })) || [],
       id: 0,
       ip,
       name,

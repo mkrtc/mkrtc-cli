@@ -2,7 +2,7 @@
 
 A small, opinionated CLI for the things you keep re-typing into your terminal — **zsh aliases**, **UUIDs**, and **SSH connections** — stored locally and synced into your shell config so they just work in every new terminal.
 
-> **Status:** the `alias` and `uuid` commands are ready to use. `ssh` is coming soon.
+> **Status:** the `alias`, `uuid`, and `ssh` commands are ready to use.
 
 ---
 
@@ -13,6 +13,7 @@ A small, opinionated CLI for the things you keep re-typing into your terminal �
   curl -fsSL https://bun.sh/install | bash
   ```
 - **zsh** with [**Oh My Zsh**](https://ohmyz.sh/) — `mkrtc` writes your aliases to `~/.oh-my-zsh/custom/aliases.zsh`. If Oh My Zsh isn't installed, `mkrtc init` will offer to install it.
+- **sshpass** — required by `mkrtc ssh` when saving and opening SSH connections.
 - Linux or macOS.
 
 > Only `zsh` is supported right now. Bash support is on the roadmap.
@@ -143,14 +144,41 @@ If you don't pass `--name`, the first segment of the UUID is used as its name.
 
 ---
 
-### SSH — `mkrtc ssh` *(coming soon)*
+### SSH — `mkrtc ssh`
 
-Save and reuse SSH connections by name. The command is registered but the action isn't wired up yet.
+Save SSH connection presets locally, list them, connect by name, and delete saved presets.
+
+`mkrtc ssh` uses `sshpass` under the hood and opens the SSH process in your current terminal.
+
+| Flag | Description |
+|---|---|
+| `-s, --save` | Save a new SSH connection preset |
+| `-c, --connect` | Connect to a saved preset by name |
+| `-l, --list` | List saved SSH presets as a table |
+| `-d, --delete` | Delete a saved SSH preset; use with `--name` |
+| `-n, --name <name>` | Preset name |
+| `-u, --user <username>` | SSH username |
+| `--ip <host>` | SSH host or IP address |
+| `-p, --password <password>` | SSH password passed to `sshpass` |
+| `-a, --args <args>` | Extra SSH arguments to save with the preset; comma-separated values are supported |
+
+**Examples**
 
 ```bash
-mkrtc ssh -c user@host -s --name prod   # save a connection (planned)
-mkrtc ssh -c prod                       # connect by saved name (planned)
-mkrtc ssh -l                            # list saved connections (planned)
+# Save a connection
+mkrtc ssh -s -n prod -u deploy --ip 192.168.1.10 -p 'secret'
+
+# Save with extra SSH options
+mkrtc ssh -s -n prod-jump -u deploy --ip 192.168.1.10 -p 'secret' -a '-p,2222'
+
+# List saved connections
+mkrtc ssh -l
+
+# Connect by saved name
+mkrtc ssh -c -n prod
+
+# Delete by saved name
+mkrtc ssh -d -n prod
 ```
 
 ---

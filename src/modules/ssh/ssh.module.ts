@@ -13,14 +13,12 @@ interface SshArgs {
   password?: string;
   save?: boolean;
   list?: boolean;
-  args?: string;
+  args?: string[];
   name?: string;
   delete?: boolean;
 }
 
 export class SshModule {
-  private isSaved: boolean;
-
   constructor(private readonly sshRepo: SshRepository) {}
 
   static register(command: Command): void {
@@ -62,7 +60,7 @@ export class SshModule {
         args.username as string,
         args.ip as string,
         args.password as string,
-        args.args as string,
+        args.args,
       );
       if (saved) {
         sshModel = saved;
@@ -100,7 +98,7 @@ export class SshModule {
         "ssh",
         "-o",
         "ConnectTimeout=5",
-        ...sshModel.args.join(" "),
+        ...sshModel.args.map((arg) => arg.arg),
         `${sshModel.username}@${sshModel.ip}`,
       );
       const proc = Bun.spawn(connection, {
