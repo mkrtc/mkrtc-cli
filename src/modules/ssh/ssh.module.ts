@@ -8,7 +8,7 @@ import { error } from "../../utils/error";
 
 interface SshArgs {
   connect?: boolean;
-  username?: string;
+  user?: string;
   ip?: string;
   password?: string;
   save?: boolean;
@@ -56,8 +56,8 @@ export class SshModule {
         : null;
 
       let sshModel: SshModel = this.sshRepo.createSshModel(
-        args.name || (args.username as string),
-        args.username as string,
+        args.name || (args.user as string),
+        args.user as string,
         args.ip as string,
         args.password as string,
         args.args,
