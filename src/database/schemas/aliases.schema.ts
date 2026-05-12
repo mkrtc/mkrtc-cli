@@ -5,7 +5,6 @@ export const aliasesSchema = sqliteTable("aliases", {
   id: integer("id").primaryKey({ autoIncrement: true }).notNull(),
   name: text("name").notNull().unique(),
   value: text("value").notNull(),
-  description: text("description"),
   createdAt: text()
     .notNull()
     .default(sql`(CURRENT_TIMESTAMP)`),

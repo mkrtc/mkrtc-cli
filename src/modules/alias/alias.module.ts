@@ -5,7 +5,7 @@ import { STR } from "../../constants/str";
 import { AliasesRepository } from "../../database/repositories/aliases.repository";
 import type { AliasModel } from "../../database/schemas/aliases.schema";
 import { error } from "../../utils/error";
-import systemConfig, { type Alias } from "../../utils/system-config";
+import systemConfig from "../../utils/system-config";
 
 interface AliasArgs {
   read: boolean;
@@ -46,22 +46,8 @@ export class AliasModule {
     if (args.add) {
       const newAliasesRaw = args.add.split(",");
       for (const raw of newAliasesRaw) {
-        const alias = raw.split("=").reduce<Alias>(
-          (prev, cur, index) => {
-            if (!index) {
-              prev.name = cur;
-              return prev;
-            }
-            const [cmd, description] = cur
-              .split(args.separator || ",")
-              .map<string>((v) => v.trim());
-            prev.value = cmd as string;
-            prev.description = description || null;
-            return prev;
-          },
-          { name: "", value: "", description: null },
-        );
-        await this.addAlias(alias.name, alias.value, alias.description);
+        const [name, ...cmd] = raw.split("=");
+        await this.addAlias(name as string, cmd.join("="));
       }
     }
 
@@ -79,28 +65,25 @@ export class AliasModule {
 
   private renderInConsole(): void {
     const table = new CliTable3({
-      head: ["ID", "Alias", "Cmd", "Description"],
+      head: ["ID", "Alias", "cmd"],
     });
-    const values: [number, string, string, string | null][] = this.aliases.map(
-      (alias) => [alias.id, alias.name, alias.value, alias.description || null],
-    );
+    const values: [number, string, string][] = this.aliases.map((alias) => [
+      alias.id,
+      alias.name,
+      alias.value,
+    ]);
     table.push(...values);
 
     console.log(table.toString());
   }
 
-  private async addAlias(
-    alias: string,
-    cmd: string,
-    description: string | null = null,
-  ): Promise<void> {
+  private async addAlias(alias: string, cmd: string): Promise<void> {
     const al = await this.aliasRepo.findOneByName(alias);
     if (al) return error(STR.AliasAlreadyExistsError(alias));
 
     const newAlias = await this.aliasRepo.createAlias({
       name: alias,
       value: cmd,
-      description,
     });
 
     this.aliases.push(newAlias);

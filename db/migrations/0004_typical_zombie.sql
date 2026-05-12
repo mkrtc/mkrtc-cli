@@ -1,0 +1,1 @@
+ALTER TABLE `aliases` DROP COLUMN `description`;

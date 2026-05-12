@@ -29,6 +29,13 @@
       "when": 1778500476693,
       "tag": "0003_shiny_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1778593646071,
+      "tag": "0004_typical_zombie",
+      "breakpoints": true
     }
   ]
 }
