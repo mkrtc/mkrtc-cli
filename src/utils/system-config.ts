@@ -1,17 +1,20 @@
+import { sleep } from "bun";
 import { DefaultRenderer, Listr, type ListrTaskWrapper } from "listr2";
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { hostname, uptime, userInfo, type UserInfo } from "node:os";
 import { join } from "node:path";
 import { AliasesRepository } from "../database/repositories/aliases.repository";
 import type { AliasModel } from "../database/schemas/aliases.schema";
+import { run } from "./run-script";
 class SystemConfig {
   readonly hostname: string;
   readonly userInfo: UserInfo<string>;
   readonly shell: ShellData;
   readonly uptime: number;
   readonly statePath: string;
+  readonly rootDir: string;
   private initialized: boolean;
   private state: State | null;
   private tasks: Listr<SystemConfig>;
@@ -27,21 +30,22 @@ class SystemConfig {
     this.shell = this.buildShellData();
     this.uptime = uptime();
     this.aliasesRepo = new AliasesRepository();
+    this.rootDir = join(import.meta.dir, "../../");
   }
 
   async init(): Promise<void> {
     this.tasks.add({
-      task: (_, task) => {
-        task.title = "Пользователь инициализирован";
-      },
-      title: "Инициализация пользователя",
-    });
-    (this.tasks.add({
       task: (_, task) => this.installNeededDeps(task),
-    }),
-      this.tasks.add({
-        task: (_, task) => this.initState(task),
-      }));
+    });
+
+    this.tasks.add({
+      task: (_, task) => this.initState(task),
+    });
+
+    this.tasks.add({
+      task: (_, task) => this.unpackArchives(task),
+      title: "Unpacking files",
+    });
 
     try {
       await this.tasks.run();
@@ -112,7 +116,6 @@ class SystemConfig {
 
   private async initState(task: Task): Promise<void> {
     const aliasesPath = this.shell.aliasesPath;
-    task.title = "state.json не найден. Создание...";
     if (!existsSync(aliasesPath)) {
       await writeFile(aliasesPath, "");
     }
@@ -124,8 +127,6 @@ class SystemConfig {
       lastModified: "",
       uuid: {},
     };
-
-    task.title = "state.json инициализирован";
     return;
   }
 
@@ -165,6 +166,42 @@ class SystemConfig {
     }
 
     return this.aliasesRepo.findAll();
+  }
+
+  private async unpackArchives(task: Task): Promise<void> {
+    const passwordsRawDir = join(this.rootDir, "data", "passwords");
+    const passwordsDir = join(this.rootDir, "static", "passwords");
+
+    if (!existsSync(passwordsDir))
+      await mkdir(passwordsDir, { recursive: true });
+
+    const passArchives = [join(passwordsRawDir, "rockyou.txt.gz")];
+
+    for (const pass of passArchives) {
+      try {
+        task.output = "Unpack: " + pass;
+        const archiveName =
+          pass.split("/")[pass.split("/")?.length - 1] || "password.txt";
+
+        const tmpName = Date.now().toString() + "-" + archiveName;
+        const archiveTmpPath = join(passwordsRawDir, tmpName);
+
+        const fileName = archiveName.replace(".gz", "");
+        const outDir = join(passwordsDir, fileName);
+
+        await run("cp", [pass, archiveTmpPath]).exited;
+
+        task.output = "Saving: " + outDir;
+
+        await run("gzip", ["-d", archiveTmpPath]).exited;
+        await sleep(1000);
+        await run("mv", [archiveTmpPath.replace(".gz", ""), outDir]).exited;
+      } catch (e) {
+        console.log(e);
+      }
+    }
+
+    task.title = "All archives successfully unpacked";
   }
 }
 type Task = ListrTaskWrapper<SystemConfig, typeof DefaultRenderer, any>;

@@ -1,3 +1,10 @@
+/**
+ *
+ * @param cmd
+ * @param args
+ * @param mode @default "inherit"
+ * @returns
+ */
 export const run = (
   cmd: string,
   args: string[],
