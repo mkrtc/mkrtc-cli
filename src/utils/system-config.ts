@@ -146,7 +146,6 @@ class SystemConfig {
         const key = Object.keys(cur)[0] as string;
         if (!key) return prev;
         prev[key] = {
-          description: null,
           name: key,
           value: cur[key] as string,
           createdAt: new Date().toISOString(),
@@ -157,13 +156,10 @@ class SystemConfig {
       }, {});
 
     for (const [key, alias] of Object.entries(aliases)) {
-      alias.description = alias.description?.trim() || null;
       const al = await this.aliasesRepo.findOneByName(key);
       if (!al) {
         await this.aliasesRepo.createAlias(alias);
       } else {
-        if (al?.description === alias.description) continue;
-
         await this.aliasesRepo.updateAliasByName(key, alias);
       }
     }
