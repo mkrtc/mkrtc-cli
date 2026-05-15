@@ -11,6 +11,7 @@ import {
   SystemProvider,
   SystemProviderKey,
 } from "../providers/system/system.provider";
+import { AliasProgram, AliasProgramKey } from "./alias.program";
 
 export const InitProgramKey = "program.init";
 
@@ -18,6 +19,8 @@ export const InitProgramKey = "program.init";
 export class InitProgram implements IProgram {
   @Inject(SystemProviderKey)
   private readonly system: SystemProvider;
+  @Inject(AliasProgramKey)
+  private readonly aliasProgram: AliasProgram;
 
   constructor() {}
 
@@ -30,6 +33,7 @@ export class InitProgram implements IProgram {
   async action(): Promise<void> {
     await this.installNeededDeps();
     await this.unpackArchives();
+    await this.aliasProgram.initAndSaveAliases();
   }
 
   private async installNeededDeps(): Promise<void> {
@@ -79,6 +83,11 @@ export class InitProgram implements IProgram {
 
         const fileName = archiveName.replace(".gz", "");
         const outDir = join(passwordsDir, fileName);
+
+        if (existsSync(outDir)) {
+          consola.success(`${fileName} already unpacked. Continue...`);
+          continue;
+        }
 
         await this.system.cmd(["cp", pass, archiveTmpPath]).exited;
 

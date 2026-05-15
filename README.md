@@ -33,13 +33,28 @@ bun install
 ./bin/install.sh
 ```
 
-The installer symlinks `mkrtc` into `~/.local/bin/` so you can call it from
-anywhere.
+The installer writes a small wrapper into `~/.local/bin/` so you can call
+`mkrtc` from anywhere.
 
 You can choose a custom command name:
 
 ```bash
 ./bin/install.sh mk
+```
+
+To install for all users, including root, run:
+
+```bash
+./bin/install.sh --system
+```
+
+This copies the project to `/opt/mkrtc` and writes the command wrapper to
+`/usr/local/bin/mkrtc`. Runtime data stays per-user in
+`~/.local/share/mkrtc/db.sqlite`, so root and regular users do not share SSH
+presets, UUIDs, or aliases. You can override both install paths:
+
+```bash
+./bin/install.sh --system --name mk --prefix /opt/mkrtc
 ```
 
 If `~/.local/bin` is not on your `PATH`, add this to `~/.zshrc`:

@@ -28,12 +28,12 @@ import {
 
 @Module({
   programs: [
+    { name: AliasProgramKey, useClass: AliasProgram },
     { name: InitProgramKey, useClass: InitProgram },
     { name: UpdaterProgramKey, useClass: UpdaterProgram },
     { name: UuidProgramKey, useClass: UuidProgram },
     { name: SshProgramKey, useClass: SshProgram },
     { name: BruteForceProgramKey, useClass: BruteForceProgram },
-    { name: AliasProgramKey, useClass: AliasProgram },
   ],
   providers: [
     { name: SystemProviderKey, useClass: SystemProvider },

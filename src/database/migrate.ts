@@ -2,15 +2,13 @@
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { getDbPath, getMigrationsPath } from "./path";
 
-mkdirSync("./db", { recursive: true });
-
-const sqlite = new Database(join("db/db.sqlite"), { create: true });
+const dbPath = getDbPath();
+const sqlite = new Database(dbPath, { create: true });
 const db = drizzle(sqlite);
 
-migrate(db, { migrationsFolder: join("db/migrations") });
+migrate(db, { migrationsFolder: getMigrationsPath() });
 sqlite.close();
 
-console.log("✓ Migrations applied");
+console.log(`✓ Migrations applied: ${dbPath}`);
