@@ -1,10 +1,19 @@
 import CliTable3 from "cli-table3";
 import type { Command } from "commander";
 import consola from "consola";
-import { STR } from "../../constants/str";
-import { SshRepository } from "../../database/repositories/ssh.repository";
-import type { SshModel } from "../../database/schemas/ssh.schema";
-import { error } from "../../utils/error";
+import { STR } from "../constants/str";
+import type { IProgram } from "../constants/types";
+import {
+  SshRepository,
+  SshRepositoryKey,
+} from "../database/repositories/ssh.repository";
+import type { SshModel } from "../database/schemas/ssh.schema";
+import { Inject } from "../decorators/inject.decorator";
+import {
+  SystemProvider,
+  SystemProviderKey,
+} from "../providers/system/system.provider";
+import { errorAndExit } from "../utils/error";
 
 interface SshArgs {
   connect?: boolean;
@@ -18,10 +27,15 @@ interface SshArgs {
   delete?: boolean;
 }
 
-export class SshModule {
-  constructor(private readonly sshRepo: SshRepository) {}
+export const SshProgramKey = "program.ssh";
 
-  static register(command: Command): void {
+export class SshProgram implements IProgram {
+  @Inject(SshRepositoryKey)
+  private readonly sshRepository: SshRepository;
+  @Inject(SystemProviderKey)
+  private readonly system: SystemProvider;
+
+  register(command: Command): void {
     command
       .command("ssh")
       .option("-c, --connect")
@@ -34,28 +48,23 @@ export class SshModule {
       .option("-u, --user <string>")
       .option("--ip <string>")
       .option("-d, --delete")
-      .action((args: SshArgs) => {
-        const sshRepo = new SshRepository();
-        const module = new SshModule(sshRepo);
-
-        return module.action(args);
-      });
+      .action((args) => this.action(args));
   }
 
   private async action(args: SshArgs): Promise<void> {
     if (args.list) {
-      const sshModels = await this.sshRepo.findAll();
+      const sshModels = await this.sshRepository.findAll();
       this.printToCondole(sshModels);
     }
 
     if (args.save) {
       const sshpassInstalled = await this.sshpassInstalled();
-      if (!sshpassInstalled) return error(STR.SshpassNorInstalledError);
+      if (!sshpassInstalled) return errorAndExit(STR.SshpassNorInstalledError);
       const saved = args.name
-        ? await this.sshRepo.findOneByName(args.name)
+        ? await this.sshRepository.findOneByName(args.name)
         : null;
 
-      let sshModel: SshModel = this.sshRepo.createSshModel(
+      let sshModel: SshModel = this.sshRepository.createSshModel(
         args.name || (args.user as string),
         args.user as string,
         args.ip as string,
@@ -67,23 +76,25 @@ export class SshModule {
       }
 
       if (!saved) {
-        if (!args.name) return error(STR.SshNameIsRequiredError);
-        await this.sshRepo.createSsh(sshModel, sshModel.args);
+        if (!args.name) return errorAndExit(STR.SshNameIsRequiredError);
+        await this.sshRepository.createSsh(sshModel, sshModel.args);
       }
 
       this.printToCondole([sshModel]);
     }
 
     if (args.connect && args.name) {
-      const sshModel = await this.sshRepo.findOneByName(args.name);
-      if (!sshModel) return error(STR.SshConfigNotExistsError(args.name));
+      const sshModel = await this.sshRepository.findOneByName(args.name);
+      if (!sshModel)
+        return errorAndExit(STR.SshConfigNotExistsError(args.name));
       return this.connect(sshModel);
     }
 
     if (args.delete && args.name) {
-      const sshModel = await this.sshRepo.findOneByName(args.name);
-      if (!sshModel) return error(STR.SshConfigNotExistsError(args.name));
-      await this.sshRepo.deleteSshById(sshModel.id);
+      const sshModel = await this.sshRepository.findOneByName(args.name);
+      if (!sshModel)
+        return errorAndExit(STR.SshConfigNotExistsError(args.name));
+      await this.sshRepository.deleteSshById(sshModel.id);
       consola.success(`SSH connection "${args.name}" successfully deleted`);
     }
   }
@@ -101,17 +112,19 @@ export class SshModule {
         ...sshModel.args.map((arg) => arg.arg),
         `${sshModel.username}@${sshModel.ip}`,
       );
-      const proc = Bun.spawn(connection, {
-        stdin: "inherit",
-        stdout: "inherit",
-        stderr: "inherit",
+      const proc = this.system.cmd(connection, {
+        mode: {
+          stdin: "inherit",
+          stdout: "inherit",
+          stderr: "inherit",
+        },
       });
       await proc.exited;
     } catch (e) {}
   }
 
   private async sshpassInstalled(): Promise<boolean> {
-    const proc = Bun.spawn(["which", "sshpass"]);
+    const proc = this.system.cmd(["which", "sshpass"]);
 
     const exitCode = await proc.exited;
 
@@ -121,6 +134,7 @@ export class SshModule {
   private printToCondole(ssh: SshModel[]): void {
     const table = new CliTable3({
       head: ["ID", "name", "username", "ip", "args"],
+      style: { compact: true },
     });
 
     const values = Object.values(ssh).map((value) => [

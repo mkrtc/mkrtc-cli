@@ -9,6 +9,8 @@
     "allowJs": true,
     "types": ["node", "bun"],
     "strictPropertyInitialization": false,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
 
     // Bundler mode
     "moduleResolution": "bundler",

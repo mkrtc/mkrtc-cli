@@ -7,6 +7,8 @@ import {
   type SshModel,
 } from "../schemas/ssh.schema";
 
+export const SshRepositoryKey = "repository.ssh";
+
 export class SshRepository {
   findAll(): Promise<SshModel[]> {
     return database.query.sshSchema.findMany({

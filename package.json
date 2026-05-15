@@ -28,6 +28,7 @@
     "drizzle-orm": "^0.45.2",
     "enquirer": "^2.4.1",
     "listr2": "^10.2.1",
-    "node-wifi": "^2.0.16"
+    "node-wifi": "^2.0.16",
+    "reflect-metadata": "^0.2.2"
   }
 }

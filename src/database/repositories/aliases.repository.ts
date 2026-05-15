@@ -2,6 +2,8 @@ import { eq } from "drizzle-orm";
 import database from "../database";
 import { aliasesSchema, type AliasModel } from "../schemas/aliases.schema";
 
+export const AliasesRepositoryKey = "repository.aliases";
+
 export class AliasesRepository {
   async findOneById(id: number): Promise<AliasModel | null> {
     const entities = await database

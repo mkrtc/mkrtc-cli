@@ -1,4 +1,5 @@
 export const STR = {
+  UNKNOWN: "unknown",
   AddAliasOption:
     "Add new alias.\n" +
     " example:\n" +

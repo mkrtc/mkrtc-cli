@@ -1,22 +1,26 @@
 # mkrtc
 
-A small, opinionated CLI for the things you keep re-typing into your terminal — **zsh aliases**, **UUIDs**, and **SSH connections** — stored locally and synced into your shell config so they just work in every new terminal.
+A small Bun-powered CLI for local terminal tooling: zsh aliases, saved UUIDs,
+SSH presets, password checks, and project self-updates.
 
-> **Status:** the `alias`, `uuid`, and `ssh` commands are ready to use.
+`mkrtc` stores data locally in SQLite, writes aliases back to Oh My Zsh, and now
+uses a decorator-based program/provider container internally.
+
+> **Status:** `init`, `update`, `alias`, `uuid`, `ssh`, and `bf` are available.
 
 ---
 
 ## Requirements
 
-- [**Bun**](https://bun.sh) ≥ 1.3 — install with:
-  ```bash
-  curl -fsSL https://bun.sh/install | bash
-  ```
-- **zsh** with [**Oh My Zsh**](https://ohmyz.sh/) — `mkrtc` writes your aliases to `~/.oh-my-zsh/custom/aliases.zsh`. If Oh My Zsh isn't installed, `mkrtc init` will offer to install it.
-- **sshpass** — required by `mkrtc ssh` when saving and opening SSH connections.
+- [Bun](https://bun.sh) 1.3 or newer.
+- zsh with [Oh My Zsh](https://ohmyz.sh/). `mkrtc` writes aliases to
+  `~/.oh-my-zsh/custom/aliases.zsh`.
+- `sshpass` for saving and opening password-based SSH presets.
+- `gzip` for unpacking bundled password lists during `mkrtc init`.
+- `git` for `mkrtc update`.
 - Linux or macOS.
 
-> Only `zsh` is supported right now. Bash support is on the roadmap.
+Only zsh is supported right now.
 
 ---
 
@@ -25,15 +29,17 @@ A small, opinionated CLI for the things you keep re-typing into your terminal �
 ```bash
 git clone https://github.com/<your-user>/mkrtc.git
 cd mkrtc
+bun install
 ./bin/install.sh
 ```
 
-That's it. The installer symlinks `mkrtc` into `~/.local/bin/` so you can call it from anywhere.
+The installer symlinks `mkrtc` into `~/.local/bin/` so you can call it from
+anywhere.
 
-You can pick a custom command name as the first argument:
+You can choose a custom command name:
 
 ```bash
-./bin/install.sh mk      # call it as `mk` instead of `mkrtc`
+./bin/install.sh mk
 ```
 
 If `~/.local/bin` is not on your `PATH`, add this to `~/.zshrc`:
@@ -42,156 +48,205 @@ If `~/.local/bin` is not on your `PATH`, add this to `~/.zshrc`:
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Then initialize:
+Then initialize local assets:
 
 ```bash
 mkrtc init
 ```
 
-This sets up the local database and imports any aliases you already have in `~/.oh-my-zsh/custom/aliases.zsh`.
-
 ---
 
-## Usage
+## Commands
 
-```
+```bash
 mkrtc <command> [options]
 ```
 
-Run `mkrtc --help` to see all commands.
+Run `mkrtc --help` or `mkrtc <command> --help` for the exact Commander output.
+
+| Command | Description |
+|---|---|
+| `init` | Prepare local assets and unpack bundled password lists |
+| `update` | Pull the latest repository changes and run initialization again |
+| `alias` | Manage zsh aliases and sync them to Oh My Zsh |
+| `uuid` | Generate, save, read, list, and delete UUIDs |
+| `ssh` | Save, list, connect to, and delete SSH presets |
+| `bf` | Check a password against the bundled list and optionally brute-force it |
 
 ---
 
-### Aliases — `mkrtc alias`
+## Init — `mkrtc init`
 
-Manage your zsh aliases. Every change is written straight to `~/.oh-my-zsh/custom/aliases.zsh`, so they survive across new terminals.
+Initializes local runtime data:
+
+- checks whether Oh My Zsh is installed;
+- offers to install Oh My Zsh if it is missing;
+- unpacks bundled password archives into `static/passwords/`.
+
+```bash
+mkrtc init
+```
+
+---
+
+## Update — `mkrtc update`
+
+Fetches and pulls the latest code from `origin/main`, then runs the same
+initialization flow used by `mkrtc init`.
+
+```bash
+mkrtc update
+```
+
+---
+
+## Aliases — `mkrtc alias`
+
+Manage zsh aliases. Changes are persisted to SQLite and written to
+`~/.oh-my-zsh/custom/aliases.zsh`.
 
 | Flag | Description |
 |---|---|
-| `-r, --read` | List all stored aliases as a table |
-| `-a, --add <name=value-description>` | Add one or more aliases (comma-separated) |
-| `-d, --delete <names>` | Delete aliases by name (comma-separated) |
+| `-r, --read` | List stored aliases |
+| `-a, --add <name=value-description>` | Add one or more aliases |
+| `-d, --delete <...string>` | Delete aliases by name |
+| `-s, --separator <string>` | Separator for multi-add input, default `,` |
 
-**Examples**
+Examples:
 
 ```bash
-# List everything
 mkrtc alias -r
-
-# Add a single alias
 mkrtc alias -a 'gs=git status'
-
-# Add an alias with a description
-mkrtc alias -a 'gs=git status - show working tree status'
-
-# Add several at once
-mkrtc alias -a 'gs=git status,gp=git pull,gc=git commit'
-
-# Delete one or more
+mkrtc alias -a 'gs=git status,gp=git pull'
 mkrtc alias -d gs,gp
 ```
 
-After any change, reload your shell to pick up the new aliases:
+After changing aliases, reload your shell:
 
 ```bash
 source ~/.zshrc
 ```
 
-(Or just open a new terminal.)
-
 ---
 
-### UUIDs — `mkrtc uuid`
+## UUIDs — `mkrtc uuid`
 
-Generate UUIDs on demand, and optionally save them with a name so you can recall them later.
+Generate UUIDs and optionally save them with names for later lookup.
 
 | Flag | Description |
 |---|---|
-| `-g, --generate` | Generate a new UUID |
-| `-q, --quantity <n>` | How many to generate (default `1`) |
-| `-n, --name <names>` | Optional name(s), comma-separated |
-| `-s, --save` | Persist the generated UUID(s) |
-| `-l, --list` | List all saved UUIDs |
-| `-r, --read <names>` | Look up saved UUIDs by name (comma-separated) |
-| `-d, --delete <names>` | Delete saved UUIDs by name (comma-separated) |
+| `-g, --generate` | Generate UUIDs |
+| `-s, --save` | Save generated UUIDs |
+| `-l, --list` | List saved UUIDs |
+| `-q, --quantity <number>` | Number of UUIDs to generate |
+| `-r, --read <...string>` | Read saved UUIDs by name |
+| `-d, --delete <...string>` | Delete UUIDs by name or UUID |
+| `-n, --name <...string>` | Name generated UUIDs |
+| `--response-format [string]` | Output format: `table`, `json`, or `string` |
+| `--separator [string]` | Separator for `string` output, default `,` |
 
-**Examples**
+Examples:
 
 ```bash
-# Quick one-off UUID
 mkrtc uuid -g
-
-# Five at once
 mkrtc uuid -g -q 5
-
-# Generate and save with a name
 mkrtc uuid -g -n session-token -s
-
-# Generate three with the same base name (auto-suffixed: run, run_1, run_2)
 mkrtc uuid -g -q 3 -n run -s
-
-# List everything you've saved
 mkrtc uuid -l
-
-# Recall by name
-mkrtc uuid -r session-token,run
-
-# Delete by name
+mkrtc uuid -r session-token,run --response-format string --separator ':'
 mkrtc uuid -d session-token,run_1
 ```
 
-If you don't pass `--name`, the first segment of the UUID is used as its name.
+If you do not pass `--name`, the first UUID segment is used as the name.
 
 ---
 
-### SSH — `mkrtc ssh`
+## SSH — `mkrtc ssh`
 
-Save SSH connection presets locally, list them, connect by name, and delete saved presets.
-
-`mkrtc ssh` uses `sshpass` under the hood and opens the SSH process in your current terminal.
+Save SSH connection presets locally, list them, connect by name, and delete
+saved presets.
 
 | Flag | Description |
 |---|---|
-| `-s, --save` | Save a new SSH connection preset |
+| `-s, --save` | Save an SSH preset |
 | `-c, --connect` | Connect to a saved preset by name |
-| `-l, --list` | List saved SSH presets as a table |
-| `-d, --delete` | Delete a saved SSH preset; use with `--name` |
-| `-n, --name <name>` | Preset name |
-| `-u, --user <username>` | SSH username |
-| `--ip <host>` | SSH host or IP address |
-| `-p, --password <password>` | SSH password passed to `sshpass` |
-| `-a, --args <args>` | Extra SSH arguments to save with the preset; comma-separated values are supported |
+| `-l, --list` | List saved SSH presets |
+| `-d, --delete` | Delete a saved preset; use with `--name` |
+| `-n, --name <string>` | Preset name |
+| `-u, --user <string>` | SSH username |
+| `--ip <string>` | SSH host or IP address |
+| `-p, --password <string>` | Password passed to `sshpass` |
+| `-a, --args <...string>` | Extra SSH arguments to save with the preset |
 
-**Examples**
+Examples:
 
 ```bash
-# Save a connection
 mkrtc ssh -s -n prod -u deploy --ip 192.168.1.10 -p 'secret'
-
-# Save with extra SSH options
-mkrtc ssh -s -n prod-jump -u deploy --ip 192.168.1.10 -p 'secret' -a '-p,2222'
-
-# List saved connections
+mkrtc ssh -s -n prod-jump -u deploy --ip 192.168.1.10 -p 'secret' -a '-p 2222'
 mkrtc ssh -l
-
-# Connect by saved name
 mkrtc ssh -c -n prod
-
-# Delete by saved name
 mkrtc ssh -d -n prod
 ```
 
 ---
 
-## Updating
+## Brute Force — `mkrtc bf`
 
-Pull the latest changes and re-run the installer (it's safe to run multiple times):
+Check a password against the bundled password list and, unless
+`--only-check-in-list` is used, brute-force the value using a selected charset.
+
+Available charset tokens:
+
+| Token | Characters |
+|---|---|
+| `0-9` | Digits |
+| `a-z` | Lowercase English letters |
+| `A-Z` | Uppercase English letters |
+
+| Flag | Description |
+|---|---|
+| `-v, --value <string>` | Password/value to check |
+| `-l, --len <number>` | Length to brute-force |
+| `-s, --symbols <...string>` | Charset token list, default `0-9` |
+| `--only-check-in-list` | Only check the bundled password list |
+
+Examples:
 
 ```bash
-cd path/to/mkrtc
-git pull
-./bin/install.sh
+mkrtc bf -v 1234 -l 4 -s 0-9
+mkrtc bf -v password --only-check-in-list
+mkrtc bf -v Ab9 -l 3 -s A-Z,a-z,0-9
 ```
+
+The password list is unpacked by `mkrtc init` from `data/passwords/rockyou.txt.gz`
+into `static/passwords/rockyou.txt`.
+
+---
+
+## Development Notes
+
+The CLI is organized around decorators:
+
+- `@Module()` registers programs and providers.
+- `@Inject(key)` injects providers or other programs by key.
+- `@OnInit()` marks initialization methods called after injection.
+- `SystemProvider` centralizes runtime data, shell paths, sudo checks, and
+  command execution.
+
+Run locally:
+
+```bash
+bun run:dev --help
+bun run:dev uuid -g
+```
+
+Type-check:
+
+```bash
+bunx tsc --noEmit
+```
+
+---
 
 ## Uninstall
 
@@ -199,7 +254,7 @@ git pull
 rm ~/.local/bin/mkrtc
 ```
 
-Your aliases stay in `~/.oh-my-zsh/custom/aliases.zsh` and will keep working — `mkrtc` just stops managing them.
+Your aliases stay in `~/.oh-my-zsh/custom/aliases.zsh` and keep working.
 
 ---
 

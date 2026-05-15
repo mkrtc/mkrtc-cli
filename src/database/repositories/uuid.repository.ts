@@ -1,6 +1,8 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, or } from "drizzle-orm";
 import database from "../database";
 import { uuidSchema, type UuidModel } from "../schemas/uuid.schema";
+
+export const UuidRepositoryKey = "repository.uuid";
 
 export class UuidRepository {
   findAll(): Promise<UuidModel[]> {
@@ -49,6 +51,18 @@ export class UuidRepository {
 
   async deleteByName(name: string): Promise<void> {
     await database.delete(uuidSchema).where(eq(uuidSchema.name, name));
+  }
+
+  async deleteByNameOrUuid(value: string): Promise<void> {
+    await database
+      .delete(uuidSchema)
+      .where(
+        or(
+          eq(uuidSchema.id, +value),
+          eq(uuidSchema.name, value),
+          eq(uuidSchema.uuid, value),
+        ),
+      );
   }
 
   async deleteManyByNames(names: string[]): Promise<void> {

@@ -2,11 +2,15 @@ import type { Command } from "commander";
 import consola from "consola";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { Charset } from "../../constants/str";
-import { error } from "../../utils/error";
-import { isSudo } from "../../utils/is-sudo";
-import { run, runAsSudo } from "../../utils/run-script";
-import systemConfig from "../../utils/system-config";
+import { Charset } from "../constants/str";
+import type { IProgram } from "../constants/types";
+import { Inject } from "../decorators/inject.decorator";
+import { OnInit } from "../decorators/on-init.decorator";
+import {
+  SystemProviderKey,
+  type SystemProvider,
+} from "../providers/system/system.provider";
+import { errorAndExit } from "../utils/error";
 
 interface BruteForceArgs {
   value?: string;
@@ -16,20 +20,25 @@ interface BruteForceArgs {
   onlyCheckInList: boolean;
 }
 
-export class BruteForceModule {
+export const BruteForceProgramKey = "program.brute_force";
+
+export class BruteForceProgram implements IProgram {
+  @Inject(SystemProviderKey)
+  private readonly system: SystemProvider;
   private passwords: Set<string>;
   private passwordsFileDir: string;
 
-  constructor() {
+  @OnInit()
+  private onInit(): void {
     this.passwordsFileDir = join(
-      systemConfig.rootDir,
+      this.system.root,
       "static",
       "passwords",
       "rockyou.txt",
     );
   }
 
-  static register(command: Command): void {
+  register(command: Command): void {
     command
       .command("bf")
       .option("-v, --value <string>")
@@ -37,11 +46,7 @@ export class BruteForceModule {
       .option("-s, --symbols <...string>", "Type", "0-9")
       .option("--wifi", "Brute force wifi connection")
       .option("--only-check-in-list", "", false)
-      .action((args: BruteForceArgs) => {
-        const module = new BruteForceModule();
-
-        return module.action(args);
-      });
+      .action((args) => this.action(args));
   }
 
   private async action(args: BruteForceArgs) {
@@ -57,37 +62,42 @@ export class BruteForceModule {
 
   private async scanWifi() {
     consola.debug("Detecting sudo mode...");
-    const isSudoMode = await isSudo();
-    if (!isSudoMode) return error('Please run script as "sudo" mode');
+    const isSudoMode = await this.system.isSudo();
+    if (!isSudoMode) return errorAndExit('Please run script as "sudo" mode');
 
     consola.success("sudo enabled");
 
     consola.debug("Detecting wifi interface");
     const iface = await this.getWifiInterface();
-    if (!iface) return error("WIFI interface not found");
+    if (!iface) return errorAndExit("WIFI interface not found");
     consola.success(`WIFI interface detected: ${iface}`);
 
-    await runAsSudo("ip", ["link", "set", iface, "down"]).exited;
+    await this.system.cmdAsSudo(["ip", "link", "set", iface, "down"]).exited;
 
     consola.debug('Enabling wifi type to: "monitor"');
     // monitor mode
-    await runAsSudo("iw", ["dev", iface, "set", "type", "monitor"]).exited;
+    await this.system.cmdAsSudo(["iw", "dev", iface, "set", "type", "monitor"])
+      .exited;
     const wifiMonitorIsEnabled = await this.monitorIsEnabled(iface);
 
     // up
-    await runAsSudo("ip", ["link", "set", iface, "up"]).exited;
+    await this.system.cmdAsSudo(["ip", "link", "set", iface, "up"]).exited;
 
     if (!wifiMonitorIsEnabled)
-      return error("Can't enable wifi monitor. Please check your wifi module");
+      return errorAndExit(
+        "Can't enable wifi monitor. Please check your wifi module",
+      );
 
     consola.success("WIFI monitor successfully enabled");
 
     // capture EAPOL
-    const capture = runAsSudo(
+    const capture = this.system.cmdAsSudo([
       "tcpdump",
-      ["-i", iface, "-w", "handshake.pcap"],
-      "inherit",
-    );
+      "-i",
+      iface,
+      "-w",
+      "handshake.pcap",
+    ]);
 
     await capture.exited;
   }
@@ -108,7 +118,7 @@ export class BruteForceModule {
   }
 
   private async monitorIsEnabled(iface: string): Promise<boolean> {
-    const proc = run("iw", ["dev"], "pipe");
+    const proc = this.system.cmd(["iw", "dev"], { mode: "pipe" });
 
     const text = await new Response(proc.stdout).text();
 

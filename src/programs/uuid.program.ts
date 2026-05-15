@@ -1,16 +1,23 @@
 import CliTable3 from "cli-table3";
 import type { Command } from "commander";
 import consola from "consola";
-import { randomUUID } from "crypto";
 import { Listr } from "listr2";
-import { UuidRepository } from "../../database/repositories/uuid.repository";
-import type { UuidModel } from "../../database/schemas/uuid.schema";
+import { randomUUID } from "node:crypto";
+import type { IProgram } from "../constants/types";
+import {
+  UuidRepository,
+  UuidRepositoryKey,
+} from "../database/repositories/uuid.repository";
+import type { UuidModel } from "../database/schemas/uuid.schema";
+import { Inject } from "../decorators/inject.decorator";
+import { Program } from "../decorators/program.decorator";
 
 interface UuidArgs {
   generate?: boolean;
   save?: boolean;
   list?: boolean;
   delete?: string;
+  deleteAll?: boolean;
   name?: string;
   read?: string;
   quantity?: number;
@@ -18,13 +25,14 @@ interface UuidArgs {
   separator?: string;
 }
 
-export class UuidModule {
-  constructor(
-    private readonly uuidRepo: UuidRepository,
-    private uuids: UuidModel[],
-  ) {}
+export const UuidProgramKey = "program.uuid";
 
-  static register(command: Command): void {
+@Program()
+export class UuidProgram implements IProgram {
+  @Inject(UuidRepositoryKey)
+  private readonly uuidRepository: UuidRepository;
+
+  register(command: Command): void {
     command
       .command("uuid")
       .option("-g, --generate")
@@ -33,6 +41,7 @@ export class UuidModule {
       .option("-q, --quantity <number>")
       .option("-r, --read <...string>")
       .option("-d, --delete <...string>")
+      .option("--delete-all")
       .option("-n, --name <...string>")
       .option(
         "--response-format [string]",
@@ -44,23 +53,18 @@ export class UuidModule {
         "Use only if response type is string",
         ",",
       )
-      .action(async (args: UuidArgs) => {
-        const uuidRepo = new UuidRepository();
-        const uuids = await uuidRepo.findAll();
-        const module = new UuidModule(uuidRepo, uuids);
-        return module.action(args);
-      });
+      .action((args) => this.action(args));
   }
 
   private async action(args: UuidArgs): Promise<void> {
     if (args.list) {
-      const uuidModels = await this.uuidRepo.findAll();
+      const uuidModels = await this.uuidRepository.findAll();
       consola.success("Fetched uuids list:");
       this.printToConsoleTable(uuidModels, args.responseFormat, args.separator);
     }
 
     if (args.read) {
-      const uuidModels = await this.uuidRepo.findManyByNames(
+      const uuidModels = await this.uuidRepository.findManyByNames(
         args.read.split(",").map((v) => v.trim()),
       );
 
@@ -76,7 +80,7 @@ export class UuidModule {
         const uuid = randomUUID();
         let name = names[i] || names[0] || (uuid.split("-")[0] as string);
         name = i > 0 && name === names[0] ? `${name}_${i}` : name;
-        uuids.push(this.uuidRepo.createModel(name, uuid));
+        uuids.push(this.uuidRepository.createModel(name, uuid));
       }
       consola.success("Generated uuids: ");
       this.printToConsoleTable(uuids, args.responseFormat, args.separator);
@@ -88,7 +92,7 @@ export class UuidModule {
           task: async (_, t) => {
             for (const uuid of uuids) {
               t.output = `Saving ${uuid.name} - ${uuid.uuid}`;
-              await this.uuidRepo.create(uuid);
+              await this.uuidRepository.create(uuid);
             }
             t.title = `Successfully saved ${uuids.length} uuids`;
           },
@@ -106,7 +110,8 @@ export class UuidModule {
         task: async (_, t) => {
           for (const name of names) {
             t.output = `Deleting ${name}`;
-            await this.uuidRepo.deleteByName(name.trim());
+
+            await this.uuidRepository.deleteByNameOrUuid(name.trim());
           }
           t.title = `Uuids [${names.join(", ")}] deleted`;
         },
