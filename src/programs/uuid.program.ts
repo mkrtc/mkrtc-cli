@@ -1,7 +1,6 @@
 import CliTable3 from "cli-table3";
 import type { Command } from "commander";
 import consola from "consola";
-import { Listr } from "listr2";
 import { randomUUID } from "node:crypto";
 import type { IProgram } from "../constants/types";
 import {
@@ -86,39 +85,17 @@ export class UuidProgram implements IProgram {
       this.printToConsoleTable(uuids, args.responseFormat, args.separator);
 
       if (args.save) {
-        const task = new Listr([]);
-
-        task.add({
-          task: async (_, t) => {
-            for (const uuid of uuids) {
-              t.output = `Saving ${uuid.name} - ${uuid.uuid}`;
-              await this.uuidRepository.create(uuid);
-            }
-            t.title = `Successfully saved ${uuids.length} uuids`;
-          },
-          title: "Saving uuids",
-        });
-        task.run();
+        for (const uuid of uuids) {
+          await this.uuidRepository.create(uuid);
+        }
       }
     }
 
     if (args.delete) {
       const names = args.delete.split(",");
-      const task = new Listr([]);
-
-      task.add({
-        task: async (_, t) => {
-          for (const name of names) {
-            t.output = `Deleting ${name}`;
-
-            await this.uuidRepository.deleteByNameOrUuid(name.trim());
-          }
-          t.title = `Uuids [${names.join(", ")}] deleted`;
-        },
-        title: "Deleting uuids",
-      });
-
-      task.run();
+      for (const name of names) {
+        await this.uuidRepository.deleteByNameOrUuid(name.trim());
+      }
     }
   }
 

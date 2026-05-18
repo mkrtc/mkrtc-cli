@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1778245599907,
-      "tag": "0000_whole_zodiak",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1778248290621,
-      "tag": "0001_square_steel_serpent",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1778500038039,
-      "tag": "0002_old_night_nurse",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1778500476693,
-      "tag": "0003_shiny_pride",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1778593646071,
-      "tag": "0004_typical_zombie",
+      "when": 1779103812088,
+      "tag": "0000_panoramic_dust",
       "breakpoints": true
     }
   ]

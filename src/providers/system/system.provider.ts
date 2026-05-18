@@ -1,3 +1,4 @@
+import consola from "consola";
 import { existsSync } from "node:fs";
 import { userInfo, type UserInfo } from "node:os";
 import { join } from "node:path";
@@ -18,12 +19,14 @@ export class SystemProvider {
   readonly root: string;
   readonly userInfo: UserInfo<string>;
   readonly shell: ShellData;
+  readonly pid: number;
   private _isSudo: boolean | null;
 
   constructor() {
     this.hostname = Bun.env.HOSTNAME || STR.UNKNOWN;
     this.arch = process.arch;
     this.platform = process.platform;
+    this.pid = process.pid;
     this.uptime = process.uptime();
     this.memory = {
       total: process.memoryUsage().heapTotal,
@@ -37,6 +40,7 @@ export class SystemProvider {
     this.root = join(import.meta.dir, "../../../");
     this.userInfo = userInfo();
     this.shell = this.buildShellData();
+    consola.success(`Program started. (PID: ${this.pid})`);
   }
 
   @OnInit()

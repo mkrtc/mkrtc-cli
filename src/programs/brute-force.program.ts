@@ -1,11 +1,9 @@
 import type { Command } from "commander";
 import consola from "consola";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import ora from "ora";
 import { Charset } from "../constants/str";
 import type { IProgram } from "../constants/types";
 import { Inject } from "../decorators/inject.decorator";
-import { OnInit } from "../decorators/on-init.decorator";
 import {
   SystemProviderKey,
   type SystemProvider,
@@ -25,18 +23,6 @@ export const BruteForceProgramKey = "program.brute_force";
 export class BruteForceProgram implements IProgram {
   @Inject(SystemProviderKey)
   private readonly system: SystemProvider;
-  private passwords: Set<string>;
-  private passwordsFileDir: string;
-
-  @OnInit()
-  private onInit(): void {
-    this.passwordsFileDir = join(
-      this.system.root,
-      "static",
-      "passwords",
-      "rockyou.txt",
-    );
-  }
 
   register(command: Command): void {
     command
@@ -50,7 +36,6 @@ export class BruteForceProgram implements IProgram {
   }
 
   private async action(args: BruteForceArgs) {
-    await this.readPasswords();
     const chars = this.parseCharset(args.symbols);
     const combination = this.parse(
       chars,
@@ -141,21 +126,12 @@ export class BruteForceProgram implements IProgram {
       .flat();
   }
 
-  private async readPasswords(): Promise<void> {
-    consola.start("reading passwords");
-    const passwordsTxt = await readFile(this.passwordsFileDir);
-    this.passwords = new Set(passwordsTxt.toString().split("\n"));
-    consola.ready(
-      `successfully read passwords.txt. Read ${this.passwords.size} passwords`,
-    );
-  }
-
-  private parse(
+  private async parse(
     chars: string[],
     len: number,
     value: string,
     onlyList: boolean = false,
-  ): Combination {
+  ): Promise<Combination> {
     const started = Date.now();
     const combinations = chars.length ** len;
     let lastCombination: Combination = {
@@ -169,32 +145,13 @@ export class BruteForceProgram implements IProgram {
       fromFile: false,
     };
 
-    const isPopularPassword = this.passwords.has(value);
-    if (isPopularPassword) {
-      consola.success(
-        "Your password is in the list on the most popular passwords",
-      );
-      const ended = Date.now();
-      const durationSec = (ended - started) / 1000;
-      return {
-        isEqual: true,
-        fromFile: true,
-        durationSec,
-        ended,
-        iteration: 0,
-        parsedValue: value,
-        started,
-        value,
-      };
-    }
-
-    consola.success(
-      "Your password not in the list on the most popular passwords",
-    );
     if (onlyList) return lastCombination;
-    consola.success("Running brute force for: " + value);
+    const spinner = ora().start("Running brute force for: " + value);
 
     for (let i = 0; i < combinations; i++) {
+      if (i % 1000 === 0) {
+        await Bun.sleep(0);
+      }
       let n = i;
       let out = "";
 
@@ -207,12 +164,10 @@ export class BruteForceProgram implements IProgram {
 
       const ended = Date.now();
       const durationSec = (ended - started) / 1000;
-      consola.success(
-        `iteration: ${i}. Checking: ${value} = ${out}. match: ${isEqual ? "yes" : "no"}, duration: ${durationSec.toFixed(2)}s`,
-      );
+      spinner.text = `iteration: ${i}. Checking: ${value} = ${out}. match: ${isEqual ? "yes" : "no"}, duration: ${durationSec.toFixed(2)}s`;
 
       if (out === value) {
-        consola.success(
+        spinner.succeed(
           `Password successfully brute forced. Password: ${out}. Duration: ${durationSec.toFixed(2)} sec.`,
         );
 

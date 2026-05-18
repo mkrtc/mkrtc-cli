@@ -102,7 +102,11 @@ export const Module =
       const pg = attachMainTarget(new p.useClass(), target);
       applyInjections(pg, initializedProvider, initializedPrograms);
       callOnInitMethods(pg);
-      pg.register(program);
+      const cmd = pg.register(program);
+      if (cmd) {
+        if (Array.isArray(cmd)) cmd.forEach((c) => program.addCommand(c));
+        else program.addCommand(cmd);
+      }
       initializedPrograms.set(p.name, pg);
     });
 

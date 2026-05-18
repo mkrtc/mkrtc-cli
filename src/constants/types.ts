@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 
 export interface IProgram {
-  register(command: Command): void;
+  register(command: Command): void | Command | Command[];
 }
 
 export interface InjectionMetadata {

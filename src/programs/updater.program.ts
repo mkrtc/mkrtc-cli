@@ -25,11 +25,23 @@ export class UpdaterProgram implements IProgram {
 
   private async action(): Promise<void> {
     consola.start("Starting update");
-    await this.system.cmd(["git", "fetch", "--all"], { cwd: this.system.root })
-      .exited;
-    await this.system.cmd(["git", "pull", "origin", "main"], {
-      cwd: this.system.root,
-    }).exited;
+    await this.runRequiredCommand("git fetch", ["git", "fetch", "--all"]);
+    await this.runRequiredCommand("git pull", ["git", "pull", "origin", "main"]);
+    await this.runRequiredCommand("database migrations", [
+      "bun",
+      "run",
+      "db:migrate",
+    ]);
     await this.initProgram.action();
+  }
+
+  private async runRequiredCommand(name: string, command: string[]): Promise<void> {
+    const code = await this.system
+      .cmd(command, { cwd: this.system.root })
+      .exited;
+
+    if (code !== 0) {
+      throw new Error(`${name} failed with exit code ${code}`);
+    }
   }
 }

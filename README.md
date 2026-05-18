@@ -6,7 +6,7 @@ SSH presets, password checks, and project self-updates.
 `mkrtc` stores data locally in SQLite, writes aliases back to Oh My Zsh, and now
 uses a decorator-based program/provider container internally.
 
-> **Status:** `init`, `update`, `alias`, `uuid`, `ssh`, and `bf` are available.
+> **Status:** `init`, `update`, `alias`, `uuid`, `ssh`, `pass`, and `bf` are available.
 
 ---
 
@@ -81,11 +81,12 @@ Run `mkrtc --help` or `mkrtc <command> --help` for the exact Commander output.
 
 | Command | Description |
 |---|---|
-| `init` | Prepare local assets and unpack bundled password lists |
-| `update` | Pull the latest repository changes and run initialization again |
+| `init` | Prepare local assets, unpack bundled password lists, and import passwords |
+| `update` | Pull the latest repository changes, run migrations, and initialize assets |
 | `alias` | Manage zsh aliases and sync them to Oh My Zsh |
 | `uuid` | Generate, save, read, list, and delete UUIDs |
 | `ssh` | Save, list, connect to, and delete SSH presets |
+| `pass` | Count saved passwords and check values against the local password DB |
 | `bf` | Check a password against the bundled list and optionally brute-force it |
 
 ---
@@ -97,6 +98,7 @@ Initializes local runtime data:
 - checks whether Oh My Zsh is installed;
 - offers to install Oh My Zsh if it is missing;
 - unpacks bundled password archives into `static/passwords/`.
+- streams unpacked passwords into the local SQLite database.
 
 ```bash
 mkrtc init
@@ -106,8 +108,9 @@ mkrtc init
 
 ## Update — `mkrtc update`
 
-Fetches and pulls the latest code from `origin/main`, then runs the same
-initialization flow used by `mkrtc init`.
+Fetches and pulls the latest code from `origin/main`, applies SQLite
+migrations with `bun run db:migrate`, then runs the same initialization flow
+used by `mkrtc init`.
 
 ```bash
 mkrtc update
@@ -181,6 +184,15 @@ If you do not pass `--name`, the first UUID segment is used as the name.
 Save SSH connection presets locally, list them, connect by name, and delete
 saved presets.
 
+Subcommands:
+
+```bash
+mkrtc ssh save --name prod --user deploy --ip 192.168.1.10 --password 'secret'
+mkrtc ssh connect --name prod
+```
+
+The older flag-based form is still supported:
+
 | Flag | Description |
 |---|---|
 | `-s, --save` | Save an SSH preset |
@@ -201,6 +213,28 @@ mkrtc ssh -s -n prod-jump -u deploy --ip 192.168.1.10 -p 'secret' -a '-p 2222'
 mkrtc ssh -l
 mkrtc ssh -c -n prod
 mkrtc ssh -d -n prod
+```
+
+Passwordless presets connect with plain `ssh`. Presets with `--password` use
+`sshpass`.
+
+---
+
+## Passwords — `mkrtc pass`
+
+Read the local password database populated by `mkrtc init`.
+
+| Flag | Description |
+|---|---|
+| `-q, --quantity` | Display the number of saved passwords |
+| `-c, --check <string>` | Check whether a password exists in the local DB |
+| `-g, --generate` | Reserved for password generation |
+
+Examples:
+
+```bash
+mkrtc pass -q
+mkrtc pass -c 'password123'
 ```
 
 ---

@@ -12,6 +12,7 @@ import {
   SystemProviderKey,
 } from "../providers/system/system.provider";
 import { AliasProgram, AliasProgramKey } from "./alias.program";
+import { PasswordProgram, PasswordProgramKey } from "./password.program";
 
 export const InitProgramKey = "program.init";
 
@@ -21,6 +22,8 @@ export class InitProgram implements IProgram {
   private readonly system: SystemProvider;
   @Inject(AliasProgramKey)
   private readonly aliasProgram: AliasProgram;
+  @Inject(PasswordProgramKey)
+  private readonly passwordProgram: PasswordProgram;
 
   constructor() {}
 
@@ -34,6 +37,7 @@ export class InitProgram implements IProgram {
     await this.installNeededDeps();
     await this.unpackArchives();
     await this.aliasProgram.initAndSaveAliases();
+    await this.passwordProgram.initPasswords();
   }
 
   private async installNeededDeps(): Promise<void> {

@@ -1,6 +1,7 @@
 import CliTable3 from "cli-table3";
-import type { Command } from "commander";
+import { Command } from "commander";
 import consola from "consola";
+import z from "zod";
 import { STR } from "../constants/str";
 import type { IProgram } from "../constants/types";
 import {
@@ -9,11 +10,20 @@ import {
 } from "../database/repositories/ssh.repository";
 import type { SshModel } from "../database/schemas/ssh.schema";
 import { Inject } from "../decorators/inject.decorator";
+import { AppException } from "../exceptions/app.exception";
+import { SshConnectionNotFoundException } from "../exceptions/ssh-connection-not-found.exception";
+import { ValidationException } from "../exceptions/validation.exception";
 import {
   SystemProvider,
   SystemProviderKey,
 } from "../providers/system/system.provider";
 import { errorAndExit } from "../utils/error";
+import {
+  CheckConnectSshDtoSchema,
+  CheckCreateAndSaveSshDtoSchema,
+  type ConnectSshDto,
+  type CreateAndSaveSshDto,
+} from "./dto/ssh.dto";
 
 interface SshArgs {
   connect?: boolean;
@@ -35,9 +45,30 @@ export class SshProgram implements IProgram {
   @Inject(SystemProviderKey)
   private readonly system: SystemProvider;
 
-  register(command: Command): void {
-    command
-      .command("ssh")
+  register(command: Command): Command {
+    command.enablePositionalOptions();
+    const sshCmd = new Command("ssh");
+    sshCmd.enablePositionalOptions();
+
+    sshCmd
+      .command("save")
+      .option(
+        "-p, --password [password]",
+        "[Optional] Password for ssh connection.",
+      )
+      .option("-a, --args <...string>", "Additional arguments for ssh cmd")
+      .option("-c, --connect", "Connect after saving")
+      .requiredOption("-n, --name <string>", "Connection name.")
+      .requiredOption("-u, --user <string>", "Username")
+      .requiredOption("--ip <string>", "Ip address")
+      .action((args) => this.saveSshAction(args));
+
+    sshCmd
+      .command("connect")
+      .option("-n, --name <string>", "Connection name")
+      .action((args) => this.connectSshAction(args));
+
+    sshCmd
       .option("-c, --connect")
       .option("-p, --password <string> [optional]")
       .option("-r, --remove <string>")
@@ -49,6 +80,56 @@ export class SshProgram implements IProgram {
       .option("--ip <string>")
       .option("-d, --delete")
       .action((args) => this.action(args));
+
+    return sshCmd;
+  }
+
+  private async saveSshAction(args: CreateAndSaveSshDto): Promise<void> {
+    const parsed = z.safeParse(CheckCreateAndSaveSshDtoSchema, args);
+    if (!parsed.success)
+      throw new AppException(
+        parsed.error.message || "Validation error",
+        "VLD-001",
+      );
+    const data = parsed.data;
+
+    const sshpassInstalled = await this.sshpassInstalled();
+    if (!sshpassInstalled) return errorAndExit(STR.SshpassNorInstalledError);
+    const saved = args.name
+      ? await this.sshRepository.findOneByName(args.name)
+      : null;
+
+    let sshModel: SshModel = this.sshRepository.createSshModel(
+      data.name || (args.user as string),
+      data.user as string,
+      data.ip as string,
+      data.password as string,
+      data.args,
+    );
+    if (saved) {
+      sshModel = saved;
+    }
+
+    if (!saved) {
+      if (!args.name) return errorAndExit(STR.SshNameIsRequiredError);
+      await this.sshRepository.createSsh(sshModel, sshModel.args);
+    }
+
+    this.printToCondole([sshModel]);
+
+    if (data.connect && saved) {
+      return this.connect(saved);
+    }
+  }
+
+  private async connectSshAction(args: ConnectSshDto): Promise<void> {
+    const parsed = z.safeParse(CheckConnectSshDtoSchema, args);
+    if (!parsed.success) throw new ValidationException(parsed.error.message);
+    const data = parsed.data;
+    const sshModel = await this.sshRepository.findOneByName(data.name);
+    if (!sshModel) throw new SshConnectionNotFoundException(data.name);
+
+    return this.connect(sshModel);
   }
 
   private async action(args: SshArgs): Promise<void> {
@@ -101,12 +182,11 @@ export class SshProgram implements IProgram {
 
   private async connect(sshModel: SshModel): Promise<void> {
     try {
-      const connection = ["sshpass"];
-      if (sshModel.password) {
-        connection.push("-p", sshModel.password);
-      }
+      const connection = sshModel.password
+        ? ["sshpass", "-p", sshModel.password, "ssh"]
+        : ["ssh"];
+
       connection.push(
-        "ssh",
         "-o",
         "ConnectTimeout=5",
         ...sshModel.args.map((arg) => arg.arg),
