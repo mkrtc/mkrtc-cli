@@ -133,7 +133,7 @@ export class SshProgram implements IProgram {
 
   private printToCondole(ssh: SshModel[]): void {
     const table = new CliTable3({
-      head: ["ID", "name", "username", "ip", "args"],
+      head: ["ID", "name", "username", "ip", "args", "connect"],
       style: { compact: true },
     });
 
@@ -143,6 +143,7 @@ export class SshProgram implements IProgram {
       value.username,
       value.ip,
       value.args?.map((arg) => arg.arg).join(", "),
+      `${value.username}@${value.ip} ${value.args?.map((a) => a.arg).join(" ")}`.trim(),
     ]);
     table.push(...values);
     console.log(table.toString());
