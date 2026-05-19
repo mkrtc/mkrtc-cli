@@ -257,6 +257,12 @@ Available charset tokens:
 | `-v, --value <string>` | Password/value to check |
 | `-l, --len <number>` | Length to brute-force |
 | `-s, --symbols <...string>` | Charset token list, default `0-9` |
+| `--wifi-capture <path>` | WPA/WPA2 handshake capture to check |
+| `--wifi-essid <ssid>` | Wi-Fi SSID for the captured handshake |
+| `--wifi-bssid <bssid>` | Access point BSSID for the captured handshake |
+| `--start-at <value>` | Start Wi-Fi brute-force from this candidate |
+| `--max-candidates <number>` | Maximum Wi-Fi candidates to check |
+| `--batch-size <number>` | Wi-Fi candidates per temporary wordlist, default `50000` |
 | `--only-check-in-list` | Only check the bundled password list |
 
 Examples:
@@ -265,7 +271,13 @@ Examples:
 mkrtc bf -v 1234 -l 4 -s 0-9
 mkrtc bf -v password --only-check-in-list
 mkrtc bf -v Ab9 -l 3 -s A-Z,a-z,0-9
+mkrtc bf --wifi-capture scripts/home.pcap --wifi-essid CORE12_OFFICE --wifi-bssid 80:00:6e:f3:d8:8d -l 8 -s 0-9
+mkrtc bf --wifi-capture scripts/home.pcap --wifi-essid CORE12_OFFICE --wifi-bssid 80:00:6e:f3:d8:8d -l 10 -s 0-9 --start-at 1230981200 --max-candidates 20 --batch-size 20
 ```
+
+The Wi-Fi numeric mode writes a temporary wordlist before running
+`aircrack-ng`; use `--start-at`, `--max-candidates`, and `--batch-size` to
+check a small window of a large keyspace.
 
 The password list is unpacked by `mkrtc init` from `data/passwords/rockyou.txt.gz`
 into `static/passwords/rockyou.txt`.
